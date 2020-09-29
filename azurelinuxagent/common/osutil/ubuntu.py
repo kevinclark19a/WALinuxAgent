@@ -55,15 +55,12 @@ class Ubuntu14OSUtil(DefaultOSUtil):
 
 
 class Ubuntu12OSUtil(Ubuntu14OSUtil):
-    def __init__(self):
+    def __init__(self): # pylint: disable=W0235
         super(Ubuntu12OSUtil, self).__init__()
 
     # Override
     def get_dhcp_pid(self):
         return self._get_dhcp_pid(["pidof", "dhclient3"])
-
-    def mount_cgroups(self):
-        pass
 
 
 class Ubuntu16OSUtil(Ubuntu14OSUtil):
@@ -80,16 +77,10 @@ class Ubuntu16OSUtil(Ubuntu14OSUtil):
     def unregister_agent_service(self):
         return shellutil.run("systemctl mask {0}".format(self.service_name), chk_err=False)
 
-    def mount_cgroups(self):
-        """
-        Mounted by default in Ubuntu 16.04
-        """
-        pass
-
 
 class Ubuntu18OSUtil(Ubuntu16OSUtil):
     """
-    Ubuntu 18.04
+    Ubuntu 18.04, 18.10, 19.04, 19.10, 20.04
     """
     def __init__(self):
         super(Ubuntu18OSUtil, self).__init__()
@@ -118,7 +109,7 @@ class Ubuntu18OSUtil(Ubuntu16OSUtil):
 
 
 class UbuntuOSUtil(Ubuntu16OSUtil):
-    def __init__(self):
+    def __init__(self): # pylint: disable=W0235
         super(UbuntuOSUtil, self).__init__()
 
     def restart_if(self, ifname, retries=3, wait=5):

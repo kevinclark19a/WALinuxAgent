@@ -13,6 +13,8 @@
 # limitations under the License.
 #
 # Requires Python 2.6+ and Openssl 1.0+
+from collections import namedtuple
+
 import errno
 import os
 import re
@@ -23,10 +25,25 @@ from azurelinuxagent.common.future import ustr
 from azurelinuxagent.common.osutil import get_osutil
 from azurelinuxagent.common.utils import fileutil
 
-re_user_system_times = re.compile(r'user (\d+)\nsystem (\d+)\n')
+
+MetricValue = namedtuple('Metric', ['category', 'counter', 'instance', 'value'])
 
 
-class CGroupContollers(object):
+class MetricsCategory(object): # pylint: disable=R0903
+    MEMORY_CATEGORY = "Memory"
+    CPU_CATEGORY = "CPU"
+
+
+class MetricsCounter(object): # pylint: disable=R0903
+    PROCESSOR_PERCENT_TIME = "% Processor Time"
+    TOTAL_MEM_USAGE = "Total Memory Usage"
+    MAX_MEM_USAGE = "Max Memory Usage"
+
+
+re_user_system_times = re.compile(r'user (\d+)\nsystem (\d+)\n') # pylint: disable=invalid-name
+
+
+class CGroupContollers(object): # pylint: disable=R0903
     CPU = "cpu"
     MEMORY = "memory"
 
@@ -88,8 +105,8 @@ class CGroup(object):
             parameter_filename = self._get_cgroup_file(parameter_name)
             logger.error("File {0} is empty but should not be".format(parameter_filename))
             raise CGroupsException("File {0} is empty but should not be".format(parameter_filename))
-        except Exception as e:
-            if isinstance(e, (IOError, OSError)) and e.errno == errno.ENOENT:
+        except Exception as e: # pylint: disable=C0103
+            if isinstance(e, (IOError, OSError)) and e.errno == errno.ENOENT: # pylint: disable=E1101
                 raise e
             parameter_filename = self._get_cgroup_file(parameter_name)
             raise CGroupsException("Exception while attempting to read {0}".format(parameter_filename), e)
@@ -99,8 +116,8 @@ class CGroup(object):
         try:
             tasks = self._get_parameters("tasks")
             if tasks:
-                return len(tasks) != 0
-        except (IOError, OSError) as e:
+                return len(tasks) != 0 # pylint: disable=len-as-condition
+        except (IOError, OSError) as e: # pylint: disable=C0103
             if e.errno == errno.ENOENT:
                 # only suppressing file not found exceptions.
                 pass
@@ -108,7 +125,7 @@ class CGroup(object):
                 logger.periodic_warn(logger.EVERY_HALF_HOUR,
                                      'Could not get list of tasks from "tasks" file in the cgroup: {0}.'
                                      ' Internal error: {1}'.format(self.path, ustr(e)))
-        except CGroupsException as e:
+        except CGroupsException as e: # pylint: disable=C0103
             logger.periodic_warn(logger.EVERY_HALF_HOUR,
                                  'Could not get list of tasks from "tasks" file in the cgroup: {0}.'
                                  ' Internal error: {1}'.format(self.path, ustr(e)))
@@ -121,7 +138,7 @@ class CGroup(object):
         procs = []
         try:
             procs = self._get_parameters("cgroup.procs")
-        except (IOError, OSError) as e:
+        except (IOError, OSError) as e: # pylint: disable=C0103
             if e.errno == errno.ENOENT:
                 # only suppressing file not found exceptions.
                 pass
@@ -129,11 +146,17 @@ class CGroup(object):
                 logger.periodic_warn(logger.EVERY_HALF_HOUR,
                                      'Could not get list of procs from "cgroup.procs" file in the cgroup: {0}.'
                                      ' Internal error: {1}'.format(self.path, ustr(e)))
-        except CGroupsException as e:
+        except CGroupsException as e: # pylint: disable=C0103
             logger.periodic_warn(logger.EVERY_HALF_HOUR,
                                  'Could not get list of tasks from "cgroup.procs" file in the cgroup: {0}.'
                                  ' Internal error: {1}'.format(self.path, ustr(e)))
         return procs
+
+    def get_tracked_metrics(self):
+        """
+        Retrieves the current value of the metrics tracked for this cgroup and returns them as an array
+        """
+        raise NotImplementedError()
 
 
 class CpuCgroup(CGroup):
@@ -160,8 +183,8 @@ class CpuCgroup(CGroup):
         """
         try:
             cpu_stat = self._get_file_contents('cpuacct.stat')
-        except Exception as e:
-            if not isinstance(e, (IOError, OSError)) or e.errno != errno.ENOENT:
+        except Exception as e: # pylint: disable=C0103
+            if not isinstance(e, (IOError, OSError)) or e.errno != errno.ENOENT: # pylint: disable=E1101
                 raise CGroupsException("Failed to read cpuacct.stat: {0}".format(ustr(e)))
             if not allow_no_such_file_or_directory_error:
                 raise e
@@ -211,6 +234,11 @@ class CpuCgroup(CGroup):
 
         return round(100.0 * float(cgroup_delta) / float(system_delta), 3)
 
+    def get_tracked_metrics(self):
+        return [
+            MetricValue(MetricsCategory.CPU_CATEGORY, MetricsCounter.PROCESSOR_PERCENT_TIME, self.name, self.get_cpu_usage()),
+        ]
+
 
 class MemoryCgroup(CGroup):
     def __init__(self, name, cgroup_path):
@@ -236,8 +264,8 @@ class MemoryCgroup(CGroup):
         usage = None
         try:
             usage = self._get_parameters('memory.usage_in_bytes', first_line_only=True)
-        except Exception as e:
-            if isinstance(e, (IOError, OSError)) and e.errno == errno.ENOENT:
+        except Exception as e: # pylint: disable=C0103
+            if isinstance(e, (IOError, OSError)) and e.errno == errno.ENOENT: # pylint: disable=E1101
                 raise
             raise CGroupsException("Exception while attempting to read {0}".format("memory.usage_in_bytes"), e)
 
@@ -253,9 +281,15 @@ class MemoryCgroup(CGroup):
         usage = None
         try:
             usage = self._get_parameters('memory.max_usage_in_bytes', first_line_only=True)
-        except Exception as e:
-            if isinstance(e, (IOError, OSError)) and e.errno == errno.ENOENT:
+        except Exception as e: # pylint: disable=C0103
+            if isinstance(e, (IOError, OSError)) and e.errno == errno.ENOENT: # pylint: disable=E1101
                 raise
             raise CGroupsException("Exception while attempting to read {0}".format("memory.usage_in_bytes"), e)
 
         return int(usage)
+
+    def get_tracked_metrics(self):
+        return [
+            MetricValue(MetricsCategory.MEMORY_CATEGORY, MetricsCounter.TOTAL_MEM_USAGE, self.name, self.get_memory_usage()),
+            MetricValue(MetricsCategory.MEMORY_CATEGORY, MetricsCounter.MAX_MEM_USAGE, self.name, self.get_max_memory_usage()),
+        ]

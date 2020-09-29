@@ -39,6 +39,10 @@ class Logger(object):
     """
     Logger class
     """
+
+    # This format is based on ISO-8601, Z represents UTC (Zero offset)
+    LogTimeFormatInUTC = u'%Y-%m-%dT%H:%M:%S.%fZ'
+
     def __init__(self, logger=None, prefix=None):
         self.appenders = []
         self.logger = self if logger is None else logger
@@ -51,12 +55,12 @@ class Logger(object):
     def set_prefix(self, prefix):
         self.prefix = prefix
 
-    def _is_period_elapsed(self, delta, h):
+    def _is_period_elapsed(self, delta, h): # pylint: disable=C0103
         return h not in self.logger.periodic_messages or \
             (self.logger.periodic_messages[h] + delta) <= datetime.now()
 
     def _periodic(self, delta, log_level_op, msg_format, *args):
-        h = hash(msg_format)
+        h = hash(msg_format) # pylint: disable=C0103
         if self._is_period_elapsed(delta, h):
             log_level_op(msg_format, *args)
             self.logger.periodic_messages[h] = datetime.now()
@@ -86,7 +90,7 @@ class Logger(object):
         self.log(LogLevel.ERROR, msg_format, *args)
 
     def log(self, level, msg_format, *args):
-        def write_log(log_appender):
+        def write_log(log_appender): # pylint: disable=W0612
             """
             The appender_lock flag is used to signal if the logger is currently in use. This prevents a subsequent log
             coming in due to writing of a log statement to be not written.
@@ -124,14 +128,13 @@ class Logger(object):
                     log_appender.appender_lock = False
 
         # if msg_format is not unicode convert it to unicode
-        if type(msg_format) is not ustr:
+        if type(msg_format) is not ustr: # pylint: disable=C0123
             msg_format = ustr(msg_format, errors="backslashreplace")
-        if len(args) > 0:
+        if len(args) > 0: # pylint: disable=len-as-condition
             msg = msg_format.format(*args)
         else:
             msg = msg_format
-            # This format is based on ISO-8601, Z represents UTC (Zero offset)
-        time = datetime.utcnow().strftime(u'%Y-%m-%dT%H:%M:%S.%fZ')
+        time = datetime.utcnow().strftime(Logger.LogTimeFormatInUTC)
         level_str = LogLevel.STRINGS[level]
         thread_name = currentThread().getName()
         if self.prefix is not None:
@@ -145,7 +148,7 @@ class Logger(object):
         for appender in self.appenders:
             appender.write(level, log_item)
             #
-            # TODO: we should actually call
+            # TODO: we should actually call # pylint: disable=W0511
             #
             #     write_log(appender)
             #
@@ -158,7 +161,7 @@ class Logger(object):
             for appender in self.logger.appenders:
                 appender.write(level, log_item)
                 #
-                # TODO: call write_log instead (see comment above)
+                # TODO: call write_log instead (see comment above) # pylint: disable=W0511
                 #
 
     def add_appender(self, appender_type, level, path, max_bytes=0, backup_count=0, agent_controlled_log_rotation=False,
@@ -169,7 +172,7 @@ class Logger(object):
         self.appenders.append(appender)
 
 
-class Appender(object):
+class Appender(object): # pylint: disable=R0903
     def __init__(self, level):
         self.appender_lock = False
         self.level = level
@@ -178,7 +181,7 @@ class Appender(object):
         pass
 
 
-class ConsoleAppender(Appender):
+class ConsoleAppender(Appender): # pylint: disable=R0903
     def __init__(self, level, path):
         super(ConsoleAppender, self).__init__(level)
         self.path = path
@@ -192,7 +195,7 @@ class ConsoleAppender(Appender):
                 pass
 
 
-class FileAppender(Appender):
+class FileAppender(Appender):  # pylint: disable=R0903
     def __init__(self, level, path, max_bytes, backup_count, agent_controlled_log_rotation, should_archive_backup_files):
         self.path = path
         self._max_bytes = max_bytes
@@ -267,8 +270,8 @@ class FileAppender(Appender):
                 os.rename(self.path, dst)
 
 
-class StdoutAppender(Appender):
-    def __init__(self, level):
+class StdoutAppender(Appender): # pylint: disable=R0903
+    def __init__(self, level): # pylint: disable=W0235
         super(StdoutAppender, self).__init__(level)
 
     def write(self, level, msg):
@@ -279,7 +282,7 @@ class StdoutAppender(Appender):
                 pass
 
 
-class TelemetryAppender(Appender):
+class TelemetryAppender(Appender): # pylint: disable=R0903
     def __init__(self, level, event_func):
         super(TelemetryAppender, self).__init__(level)
         self.event_func = event_func
@@ -296,7 +299,7 @@ class TelemetryAppender(Appender):
 DEFAULT_LOGGER = Logger()
 
 
-class LogLevel(object):
+class LogLevel(object): # pylint: disable=R0903
     VERBOSE = 0
     INFO = 1
     WARNING = 2
@@ -309,7 +312,7 @@ class LogLevel(object):
     ]
 
 
-class AppenderType(object):
+class AppenderType(object): # pylint: disable=R0903
     FILE = 0
     CONSOLE = 1
     STDOUT = 2
@@ -385,7 +388,7 @@ def log(level, msg_format, *args):
 
 def _create_logger_appender(appender_type, level=LogLevel.INFO, path=None, max_bytes=0, backup_count=0,
                             agent_controlled_log_rotation=False, should_archive_backup_files=True):
-    if appender_type == AppenderType.CONSOLE:
+    if appender_type == AppenderType.CONSOLE:  # pylint: disable=R1705
         return ConsoleAppender(level, path)
     elif appender_type == AppenderType.FILE:
         return FileAppender(level, path, max_bytes=max_bytes, backup_count=backup_count,
