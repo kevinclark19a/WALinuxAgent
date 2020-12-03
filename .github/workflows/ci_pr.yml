@@ -12,6 +12,7 @@ jobs:
     strategy:
       fail-fast: true
       matrix:
+        runs-on: ubuntu-latest
         include:
           os: ubuntu-latest
           python-version: 3.8
