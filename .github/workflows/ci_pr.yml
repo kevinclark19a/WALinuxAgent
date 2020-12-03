@@ -31,6 +31,14 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r test-requirements.txt
+    
+    - name: Export Env
+      env:
+        PYLINTOPTS: ${{ matrix.PYLINTOPTS }}
+        PYLINTFILES: ${{ matrix.PYLINTFILES }}
+      run: |
+        export PYLINTOPTS=$PYLINTOPTS
+        export PYLINTFILES=$PYLINTFILES
 
     - name: Check Env
       run: |
