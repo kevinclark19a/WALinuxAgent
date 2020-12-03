@@ -14,15 +14,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-16.04
-            python-version: 2.6
-            PYLINTOPTS: ""
-            PYLINTFILES: ""
+          # - os: ubuntu-16.04
+          #   python-version: 2.6
+          #   PYLINTOPTS: ""
+          #   PYLINTFILES: ""
 
-          - os: ubuntu-16.04
-            python-version: 3.4
-            PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+          # - os: ubuntu-16.04
+          #   python-version: 3.4
+          #   PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
+          #   PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+
+          # - os: ubuntu-latest
+          #   python-version: 3.6
+          #   PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+          #   PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+
+          # - os: ubuntu-latest
+          #   python-version: 3.7
+          #   PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+          #   PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
           - os: ubuntu-latest
             python-version: 3.8
@@ -73,3 +83,28 @@ jobs:
       if: matrix.python-version != 2.6
       run: |
         pylint $PYLINTOPTS --jobs=0 $PYLINTFILES
+
+    - name: Run Coverage
+      if: matrix.python-version == 3.8
+      run: |
+        echo looking for coverage files :; ls -alh | grep -i coverage
+        sudo env "PATH=$PATH" coverage combine coverage.*.data
+        sudo env "PATH=$PATH" coverage xml
+        COVERAGE_PERCENT=$(coverage report | tail -n 1 | rev | cut -d ' ' -f 1 | cut -c 2- | rev)
+        EXIT_CODE=1
+        echo Codecoverage : $COVERAGE_PERCENT%
+        if [ "$COVERAGE_PERCENT" -eq "$COVERAGE_PERCENT" ] && [ "$COVERAGE_PERCENT" -gt "$MIN_COVERAGE_GOAL" ]; then 
+          echo Pass coverage check.
+          EXIT_CODE=0;
+        else 
+          echo Failed coverage check. Found $COVERAGE_PERCENT%, expected minimum of $MIN_COVERAGE_GOAL%;
+          EXIT_CODE=1;
+        fi
+        exit $EXIT_CODE
+
+      - name: Upload Coverage
+        if: matrix.python-version == 3.8
+        uses: codecov/codecov-action@v1
+        with:
+          file: ./coverage.xml
+          verbose: true
