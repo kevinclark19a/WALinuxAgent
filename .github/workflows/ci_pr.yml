@@ -53,6 +53,7 @@ jobs:
     env:
       PYLINTOPTS: ${{ matrix.PYLINTOPTS }}
       PYLINTFILES: ${{ matrix.PYLINTFILES }}
+      NOSEOPTS: ${{ matrix.NOSEOPTS }}
       PYTHON_VERSION: ${{ matrix.python-version }}
 
     steps:
