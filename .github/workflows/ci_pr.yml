@@ -8,15 +8,15 @@ on:
 
 jobs:
   build:
+    NOSEOPTS: "--verbose --with-timer"
+    PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+
     name: "Python UT CI Run"
     runs-on: ubuntu-latest
+    
     strategy:
       fail-fast: false
       matrix:
-
-        NOSEOPTS: [ "--verbose --with-timer" ]
-        PYLINTFILES: [ "azurelinuxagent setup.py makepkg.py tests" ]
-
         include:
           - os: ubuntu-16.04
             python-version: 2.6
