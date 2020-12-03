@@ -35,6 +35,7 @@ jobs:
     - name: Check Env
       run: |
         printenv
+        echo "PYLINTOPTS=$(PYLINTOPTS)"
 
     - name: Test with nosetests
       run: |
