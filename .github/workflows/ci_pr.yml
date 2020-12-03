@@ -14,25 +14,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # - os: ubuntu-16.04
-          #   python-version: 2.6
-          #   PYLINTOPTS: ""
-          #   PYLINTFILES: ""
+          - os: ubuntu-16.04
+            python-version: 2.6
+            PYLINTOPTS: ""
+            PYLINTFILES: ""
 
-          # - os: ubuntu-16.04
-          #   python-version: 3.4
-          #   PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
-          #   PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+          - os: ubuntu-16.04
+            python-version: 3.4
+            PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          # - os: ubuntu-latest
-          #   python-version: 3.6
-          #   PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
-          #   PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+          - os: ubuntu-latest
+            python-version: 3.6
+            PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          # - os: ubuntu-latest
-          #   python-version: 3.7
-          #   PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
-          #   PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+          - os: ubuntu-latest
+            python-version: 3.7
+            PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
           - os: ubuntu-latest
             python-version: 3.8
@@ -76,8 +76,9 @@ jobs:
 
     - name: Test with nosetests
       run: |
-        # nosetests -a '!requires_sudo' tests
-        # sudo env "PATH=$PATH" nosetests -a 'requires_sudo' tests
+        ./ci/nosetests.sh || EXIT_CODE=$?
+        exit $EXIT_CODE
+
 
     - name: Run pylint
       if: matrix.python-version != 2.6
@@ -85,9 +86,12 @@ jobs:
         pylint $PYLINTOPTS --jobs=0 $PYLINTFILES
 
     - name: Run Coverage
+      env:
+        MIN_COVERAGE_GOAL: 60
       if: matrix.python-version == 3.8
       run: |
-        echo looking for coverage files :; ls -alh | grep -i coverage
+        echo looking for coverage files :
+        ls -alh | grep -i coverage
         sudo env "PATH=$PATH" coverage combine coverage.*.data
         sudo env "PATH=$PATH" coverage xml
         COVERAGE_PERCENT=$(coverage report | tail -n 1 | rev | cut -d ' ' -f 1 | cut -c 2- | rev)
