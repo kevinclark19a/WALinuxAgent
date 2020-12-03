@@ -15,28 +15,49 @@ jobs:
       matrix:
 
         include:
-          - os: ubuntu-latest
-            python-version: 3.8
-            PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-
           - os: ubuntu-16.04
             python-version: 2.6
             PYLINTOPTS: ""
             PYLINTFILES: ""
 
+          - os: ubuntu-16.04
+            python-version: 3.4
+            PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+
+          - os: ubuntu-latest
+            python-version: 3.8
+            PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
+
     env:
       PYLINTOPTS: ${{ matrix.PYLINTOPTS }}
       PYLINTFILES: ${{ matrix.PYLINTFILES }}
+      PYTHON_VERSION: ${{ matrix.python-version }}
 
     steps:
     
     - uses: actions/checkout@v2
     
     - name: Set up Python ${{ matrix.python-version }}
+      if: matrix.python-version != 2.6 && matrix.python-version != 3.4
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
+
+    - name: Manual Install Python ${{ matrix.python-version }}
+      if: matrix.python-version == 2.6 || matrix.python-version == 3.4
+      run: |
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt-get update -y
+        sudo apt install python$PYTHON_VERSION python$PYTHON_VERSION-dev -y
+        sudo ln -sf /usr/bin/python$PYTHON_VERSION /usr/bin/python
+        PATH="/usr/bin/${PATH:+:${PATH}}"
+        echo $PATH
+        echo "Installed python$PYTHON_VERSION"
+        python -V
+        curl https://bootstrap.pypa.io/$(python.version)/get-pip.py -o get-pip.py
+        sudo env "PATH=$PATH" python get-pip.py
     
     - name: Install dependencies
       run: |
@@ -50,5 +71,6 @@ jobs:
         sudo env "PATH=$PATH" nosetests -a 'requires_sudo' tests
 
     - name: Run pylint
+      if: matrix.python-version != 2.6
       run: |
         pylint $PYLINTOPTS --jobs=0 $PYLINTFILES
