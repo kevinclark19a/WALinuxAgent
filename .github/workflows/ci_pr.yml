@@ -93,7 +93,7 @@ jobs:
 
 
     - name: Run pylint
-      if: matrix.python-version != 2.6
+      if: always() && matrix.python-version != 2.6
       run: |
         pylint $PYLINTOPTS --jobs=0 $PYLINTFILES
 
@@ -124,3 +124,10 @@ jobs:
       with:
         file: ./coverage.xml
         verbose: true
+
+    - name: Publish Unit Test Results
+      uses: EnricoMi/publish-unit-test-result-action@v1.6
+      if: always() && matrix.python-version == 3.8
+      with:
+        github_token: ${​​​​{​​​​ secrets.GITHUB_TOKEN }​​​​}​​​​
+        files: nosetests.*.xml
