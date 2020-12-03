@@ -102,9 +102,9 @@ jobs:
         fi
         exit $EXIT_CODE
 
-      - name: Upload Coverage
-        if: matrix.python-version == 3.8
-        uses: codecov/codecov-action@v1
-        with:
-          file: ./coverage.xml
-          verbose: true
+    - name: Upload Coverage
+      if: matrix.python-version == 3.8
+      uses: codecov/codecov-action@v1
+      with:
+        file: ./coverage.xml
+        verbose: true
