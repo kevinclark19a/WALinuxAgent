@@ -13,8 +13,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-        
         include:
           - os: ubuntu-16.04
             python-version: 2.6
@@ -25,26 +23,31 @@ jobs:
           - os: ubuntu-latest
             python-version: 2.7
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
             NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-16.04
             python-version: 3.4
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
             NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-latest
             python-version: 3.6
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
             NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-latest
             python-version: 3.7
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
             NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-latest
             python-version: 3.8
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
+            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
             NOSEOPTS: "--verbose --with-coverage --with-xunit --xunit-file=nosetests.__uuid__.xml --with-timer --cover-erase --cover-inclusive --cover-branches --cover-package=azurelinuxagent"
 
     env:
