@@ -2,7 +2,7 @@ name: CI Unit tests
 
 on:
   push:
-    branches: [ * ]
+    branches: [ "*" ]
   pull_request:
     branches: [ develop ]
 
