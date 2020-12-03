@@ -14,8 +14,8 @@ jobs:
       fail-fast: true
       matrix:
         include:
-          os: ubuntu-latest
-          python-version: 3.8
+          - os: ubuntu-latest
+            python-version: 3.8
 
     steps:
     - uses: actions/checkout@v2
