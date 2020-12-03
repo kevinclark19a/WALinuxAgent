@@ -2,7 +2,7 @@ name: CI Unit tests
 
 on:
   push:
-    branches: [ develop ]
+    branches: [ * ]
   pull_request:
     branches: [ develop ]
 
@@ -13,6 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+
+        NOSEOPTS: [ "--verbose --with-timer" ]
+        PYLINTFILES: [ "azurelinuxagent setup.py makepkg.py tests" ]
+
         include:
           - os: ubuntu-16.04
             python-version: 2.6
@@ -23,32 +27,24 @@ jobs:
           - os: ubuntu-latest
             python-version: 2.7
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-            NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-16.04
             python-version: 3.4
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-            NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-latest
             python-version: 3.6
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-            NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-latest
             python-version: 3.7
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-            NOSEOPTS: "--verbose --with-timer"
 
           - os: ubuntu-latest
             python-version: 3.8
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
-            PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
-            NOSEOPTS: "--verbose --with-coverage --with-xunit --xunit-file=nosetests.__uuid__.xml --with-timer --cover-erase --cover-inclusive --cover-branches --cover-package=azurelinuxagent"
+            NOSEOPTS: "--verbose --with-coverage --with-xunit --xunit-file=nosetests.__uuid__.xml
+              --with-timer --cover-erase --cover-inclusive --cover-branches --cover-package=azurelinuxagent"
 
     env:
       PYLINTOPTS: ${{ matrix.PYLINTOPTS }}
@@ -119,15 +115,13 @@ jobs:
         exit $EXIT_CODE
 
     - name: Upload Coverage
-      if: matrix.python-version == 3.8
+      if: ${{ github.event_name == 'pull_request' }} && matrix.python-version == 3.8
       uses: codecov/codecov-action@v1
       with:
         file: ./coverage.xml
-        verbose: true
 
-    - name: Publish Unit Test Results
-      uses: EnricoMi/publish-unit-test-result-action@v1.6
-      if: always() && matrix.python-version == 3.8
+    - name: Publish Test Report
+      uses: mikepenz/action-junit-report@v1
       with:
-        github_token: ${​​​​{​​​​ secrets.GITHUB_TOKEN }​​​​}​​​​
-        files: nosetests.*.xml
+        report_paths: 'nosetests.*.xml'
+        github_token: ${{ secrets.GITHUB_TOKEN }}
