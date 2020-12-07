@@ -22,31 +22,31 @@ jobs:
             PYLINTFILES: ""
             NOSEOPTS: "--verbose"
 
-          - os: ubuntu-latest
+          - os: ubuntu-18.04
             python-version: 2.7
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-16.04
+          - os: ubuntu-18.04
             python-version: 3.4
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-latest
+          - os: ubuntu-18.04
             python-version: 3.6
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-latest
+          - os: ubuntu-18.04
             python-version: 3.7
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-latest
+          - os: ubuntu-18.04
             python-version: 3.8
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
             NOSEOPTS: "--verbose --with-coverage --with-xunit --xunit-file=nosetests.__uuid__.xml
@@ -64,13 +64,13 @@ jobs:
     - uses: actions/checkout@v2
     
     - name: Set up Python ${{ matrix.python-version }}
-      if: matrix.python-version != 2.6 && matrix.python-version != 3.4
+      if: matrix.python-version != 2.6
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
 
     - name: Manual Install Python ${{ matrix.python-version }}
-      if: matrix.python-version == 2.6 || matrix.python-version == 3.4
+      if: matrix.python-version == 2.6
       run: |
         sudo add-apt-repository ppa:deadsnakes/ppa -y
         sudo apt-get update -y
