@@ -4,50 +4,79 @@ on:
   push:
     branches: [ "*" ]
   pull_request:
-    branches: [ develop ]
+    branches: [ "*" ]
 
 jobs:
+  legacy:
+    
+    name: "Python 2.6 Unit Tests"
+    runs-on: ubuntu-16.04
+
+    strategy:
+      fail-fast: false
+    env:
+      NOSEOPTS: "--verbose"
+
+    steps:
+
+    - name: Install Python 2.6
+      if: matrix.python-version == 2.6
+      run: |
+        sudo add-apt-repository ppa:deadsnakes/ppa -y
+        sudo apt-get update -y
+        sudo apt install python$PYTHON_VERSION python$PYTHON_VERSION-dev -y
+        sudo ln -sf /usr/bin/python$PYTHON_VERSION /usr/bin/python
+        PATH="/usr/bin/${PATH:+:${PATH}}"
+        echo $PATH
+        echo "Installed python$PYTHON_VERSION"
+        python -V
+        curl https://bootstrap.pypa.io/$PYTHON_VERSION/get-pip.py -o get-pip.py
+        sudo env "PATH=$PATH" python get-pip.py
+
+    - uses: actions/checkout@v2
+
+    - name: Install dependencies
+      run: |
+        sudo env "PATH=$PATH" python -m pip install --upgrade pip
+        sudo env "PATH=$PATH" pip install -r requirements.txt
+        sudo env "PATH=$PATH" pip install -r test-requirements.txt
+    
+    - name: Test with nosetests
+      run: |
+        ./ci/nosetests.sh || EXIT_CODE=$?
+        exit $EXIT_CODE
+
   build:
 
-    name: "Python UT CI Run"
-    runs-on: ubuntu-latest
+    name: "Pythons {2.7, 3.4, 3.7, 3.8}"
+    runs-on: ubuntu-18.04
     
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-16.04
-            python-version: 2.6
-            PYLINTOPTS: ""
-            PYLINTFILES: ""
-            NOSEOPTS: "--verbose"
 
-          - os: ubuntu-18.04
-            python-version: 2.7
+          - python-version: 2.7
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-18.04
-            python-version: 3.4
+          - python-version: 3.4
             PYLINTOPTS: "--rcfile=ci/2.7.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-18.04
-            python-version: 3.6
+          - python-version: 3.6
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-18.04
-            python-version: 3.7
+          - python-version: 3.7
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
             NOSEOPTS: "--verbose --with-timer"
             PYLINTFILES: "azurelinuxagent setup.py makepkg.py tests"
 
-          - os: ubuntu-18.04
-            python-version: 3.8
+          - python-version: 3.8
             PYLINTOPTS: "--rcfile=ci/3.6.pylintrc"
             NOSEOPTS: "--verbose --with-coverage --with-xunit --xunit-file=nosetests.__uuid__.xml
               --with-timer --cover-erase --cover-inclusive --cover-branches --cover-package=azurelinuxagent"
@@ -63,42 +92,21 @@ jobs:
     
     - uses: actions/checkout@v2
     
-    - name: Set up Python ${{ matrix.python-version }}
-      if: matrix.python-version != 2.6
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Manual Install Python ${{ matrix.python-version }}
-      if: matrix.python-version == 2.6
-      run: |
-        sudo add-apt-repository ppa:deadsnakes/ppa -y
-        sudo apt-get update -y
-        sudo apt install python$PYTHON_VERSION python$PYTHON_VERSION-dev -y
-        sudo ln -sf /usr/bin/python$PYTHON_VERSION /usr/bin/python
-        PATH="/usr/bin/${PATH:+:${PATH}}"
-        echo $PATH
-        echo "Installed python$PYTHON_VERSION"
-        python -V
-        curl https://bootstrap.pypa.io/$PYTHON_VERSION/get-pip.py -o get-pip.py
-        sudo env "PATH=$PATH" python get-pip.py
-    
     - name: Install dependencies
       run: |
-        sudo env "PATH=$PATH" python -m pip install --upgrade pip || true
+        sudo env "PATH=$PATH" python -m pip install --upgrade pip
         sudo env "PATH=$PATH" pip install -r requirements.txt
         sudo env "PATH=$PATH" pip install -r test-requirements.txt
 
+    - name: Run pylint
+      run: |
+        pylint $PYLINTOPTS --jobs=0 $PYLINTFILES
+
     - name: Test with nosetests
+      if: always()
       run: |
         ./ci/nosetests.sh || EXIT_CODE=$?
         exit $EXIT_CODE
-
-
-    - name: Run pylint
-      if: always() && matrix.python-version != 2.6
-      run: |
-        pylint $PYLINTOPTS --jobs=0 $PYLINTFILES
 
     - name: Run Coverage
       env:
