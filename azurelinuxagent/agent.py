@@ -45,9 +45,6 @@ from azurelinuxagent.common.version import AGENT_NAME, AGENT_LONG_VERSION, AGENT
     get_daemon_version, set_daemon_version
 from azurelinuxagent.pa.provision.default import ProvisionHandler
 
-from azurelinuxagent.common.osutil.default import DEFAULT_LOG_DIR, WAAGENT_LOG_FILE
-
-
 class Agent(object):
     def __init__(self, verbose, conf_file_path=None):
         """
