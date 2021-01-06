@@ -27,7 +27,8 @@ from azurelinuxagent.common.event import EVENTS_DIRECTORY
 from azurelinuxagent.common.version import set_current_agent, \
     AGENT_LONG_VERSION, AGENT_VERSION, AGENT_NAME, AGENT_NAME_PATTERN, \
     get_f5_platform, get_distro, get_lis_version, PY_VERSION_MAJOR, \
-    PY_VERSION_MINOR
+    PY_VERSION_MINOR, get_daemon_version, set_daemon_version, __DAEMON_VERSION_ENV_VARIABLE as DAEMON_VERSION_ENV_VARIABLE
+from azurelinuxagent.common.utils.flexible_version import FlexibleVersion
 from tests.tools import AgentTestCase, open_patch, patch
 
 
@@ -35,7 +36,7 @@ def freebsd_system():
     return ["FreeBSD"]
 
 
-def freebsd_system_release(x, y, z): # pylint: disable=unused-argument,invalid-name
+def freebsd_system_release(x, y, z):  # pylint: disable=unused-argument
     return "10.0"
 
 
@@ -43,7 +44,7 @@ def openbsd_system():
     return ["OpenBSD"]
 
 
-def openbsd_system_release(x, y, z): # pylint: disable=unused-argument,invalid-name
+def openbsd_system_release(x, y, z):  # pylint: disable=unused-argument
     return "20.0"
 
 
@@ -72,20 +73,20 @@ class TestAgentVersion(AgentTestCase):
 
     @mock.patch('platform.system', side_effect=freebsd_system)
     @mock.patch('re.sub', side_effect=freebsd_system_release)
-    def test_distro_is_correct_format_when_freebsd(self, platform_system_name, mock_variable): # pylint: disable=unused-argument
+    def test_distro_is_correct_format_when_freebsd(self, platform_system_name, mock_variable):  # pylint: disable=unused-argument
         osinfo = get_distro()
         freebsd_list = ['freebsd', "10.0", '', 'freebsd']
         self.assertListEqual(freebsd_list, osinfo)
 
     @mock.patch('platform.system', side_effect=openbsd_system)
     @mock.patch('re.sub', side_effect=openbsd_system_release)
-    def test_distro_is_correct_format_when_openbsd(self, platform_system_name, mock_variable): # pylint: disable=unused-argument
+    def test_distro_is_correct_format_when_openbsd(self, platform_system_name, mock_variable):  # pylint: disable=unused-argument
         osinfo = get_distro()
         openbsd_list = ['openbsd', "20.0", '', 'openbsd']
         self.assertListEqual(openbsd_list, osinfo)
 
     @mock.patch('platform.system', side_effect=default_system)
-    def test_distro_is_correct_format_when_default_case(self, *args): # pylint: disable=unused-argument
+    def test_distro_is_correct_format_when_default_case(self, *args):  # pylint: disable=unused-argument
         default_list = ['', '', '', '']
         unknown_list = ['unknown', 'FFFF', '', '']
 
@@ -99,7 +100,7 @@ class TestAgentVersion(AgentTestCase):
             self.assertListEqual(unknown_list, osinfo)
 
     @mock.patch('platform.system', side_effect=default_system)
-    def test_distro_is_correct_for_exception_case(self, *args): # pylint: disable=unused-argument
+    def test_distro_is_correct_for_exception_case(self, *args):  # pylint: disable=unused-argument
         default_list = ['unknown', 'FFFF', '', '']
 
         if is_platform_dist_supported():
@@ -123,19 +124,36 @@ class TestAgentVersion(AgentTestCase):
         lis_version = get_lis_version()
         self.assertIsInstance(lis_version, str)
 
+    def test_get_daemon_version_should_return_the_version_that_was_previously_set(self):
+        set_daemon_version("1.2.3.4")
+
+        try:
+            self.assertEqual(
+                FlexibleVersion("1.2.3.4"), get_daemon_version(),
+                "The daemon version should be 1.2.3.4. Environment={0}".format(os.environ)
+            )
+        finally:
+            os.environ.pop(DAEMON_VERSION_ENV_VARIABLE)
+
+    def test_get_daemon_version_should_return_zero_when_the_version_has_not_been_set(self):
+        self.assertEqual(
+            FlexibleVersion("0.0.0.0"), get_daemon_version(),
+            "The daemon version should not be defined. Environment={0}".format(os.environ)
+        )
+
 
 class TestCurrentAgentName(AgentTestCase):
     def setUp(self):
         AgentTestCase.setUp(self)
 
     @patch("os.getcwd", return_value="/default/install/directory")
-    def test_extract_name_finds_installed(self, mock_cwd): # pylint: disable=unused-argument
+    def test_extract_name_finds_installed(self, mock_cwd):  # pylint: disable=unused-argument
         current_agent, current_version = set_current_agent()
         self.assertEqual(AGENT_LONG_VERSION, current_agent)
         self.assertEqual(AGENT_VERSION, str(current_version))
 
     @patch("os.getcwd", return_value="/")
-    def test_extract_name_root_finds_installed(self, mock_cwd): # pylint: disable=unused-argument
+    def test_extract_name_root_finds_installed(self, mock_cwd):  # pylint: disable=unused-argument
         current_agent, current_version = set_current_agent()
         self.assertEqual(AGENT_LONG_VERSION, current_agent)
         self.assertEqual(AGENT_VERSION, str(current_version))

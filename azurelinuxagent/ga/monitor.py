@@ -21,10 +21,10 @@ import uuid
 
 import azurelinuxagent.common.logger as logger
 import azurelinuxagent.common.utils.networkutil as networkutil
-from azurelinuxagent.common.cgroupconfigurator import CGroupConfigurator
+from azurelinuxagent.common.cgroupconfigurator import CGroupConfigurator, UnexpectedProcessesInCGroupException
 from azurelinuxagent.common.cgroupstelemetry import CGroupsTelemetry
 from azurelinuxagent.common.errorstate import ErrorState
-from azurelinuxagent.common.event import add_event, WALAEventOperation, report_metric, collect_events
+from azurelinuxagent.common.event import add_event, WALAEventOperation, report_metric
 from azurelinuxagent.common.future import ustr
 from azurelinuxagent.common.interfaces import ThreadHandlerInterface
 from azurelinuxagent.common.osutil import get_osutil
@@ -56,39 +56,20 @@ class PollResourceUsageOperation(PeriodicOperation):
         self._error_count = 0
 
     def _operation_impl(self):
-        #
-        # Check the processes in the agent cgroup
-        #
-        processes_check_error = None
         try:
-            processes = CGroupConfigurator.get_instance().get_processes_in_agent_cgroup()
+            CGroupConfigurator.get_instance().check_processes_in_agent_cgroup()
+        except UnexpectedProcessesInCGroupException as exception:
+            exception.unexpected.sort()
+            message = "The agent's cgroup includes unexpected processes: {0}".format(exception.unexpected)
 
-            if processes is not None:
-                unexpected_processes = []
+            # Report a small sample of errors
+            if message != self._last_error and self._error_count < 5:
+                self._error_count += 1
+                self._last_error = message
+                logger.info(message)
+                add_event(op=WALAEventOperation.CGroupsDebug, message=message)
 
-                for (_, command_line) in processes:
-                    if not CGroupConfigurator.is_agent_process(command_line):
-                        unexpected_processes.append(command_line)
-
-                if unexpected_processes:
-                    unexpected_processes.sort()
-                    processes_check_error = "The agent's cgroup includes unexpected processes: {0}".format(ustr(unexpected_processes))
-        except Exception as exception:
-            processes_check_error = "Failed to check the processes in the agent's cgroup: {0}".format(ustr(exception))
-
-        # Report a small sample of errors
-        if processes_check_error != self._last_error and self._error_count < 5:
-            self._error_count += 1
-            self._last_error = processes_check_error
-            logger.info(processes_check_error)
-            add_event(op=WALAEventOperation.CGroupsDebug, message=processes_check_error)
-
-        #
-        # Report metrics
-        #
-        metrics = CGroupsTelemetry.poll_all_tracked()
-
-        for metric in metrics:
+        for metric in CGroupsTelemetry.poll_all_tracked():
             report_metric(metric.category, metric.counter, metric.instance, metric.value)
 
 
@@ -156,7 +137,7 @@ class ReportNetworkConfigurationChangesOperation(PeriodicOperation):
             self.last_nic_state = nic_state
 
 
-class MonitorHandler(ThreadHandlerInterface): # pylint: disable=R0902
+class MonitorHandler(ThreadHandlerInterface):
     # telemetry
     EVENT_COLLECTION_PERIOD = datetime.timedelta(minutes=1)
     # host plugin
@@ -179,7 +160,6 @@ class MonitorHandler(ThreadHandlerInterface): # pylint: disable=R0902
         self.event_thread = None
         self._periodic_operations = [
             ResetPeriodicLogMessagesOperation(),
-            PeriodicOperation("collect_and_send_events", self.collect_and_send_events, self.EVENT_COLLECTION_PERIOD),
             ReportNetworkErrorsOperation(),
             PeriodicOperation("send_host_plugin_heartbeat", self.send_host_plugin_heartbeat, self.HOST_PLUGIN_HEARTBEAT_PERIOD),
             PeriodicOperation("send_imds_heartbeat", self.send_imds_heartbeat, self.IMDS_HEARTBEAT_PERIOD),
@@ -244,28 +224,15 @@ class MonitorHandler(ThreadHandlerInterface): # pylint: disable=R0902
                 try:
                     self.protocol.update_host_plugin_from_goal_state()
 
-                    for op in self._periodic_operations: # pylint: disable=C0103
+                    for op in self._periodic_operations:
                         op.run()
 
-                except Exception as e: # pylint: disable=C0103
+                except Exception as e:
                     logger.error("An error occurred in the monitor thread main loop; will skip the current iteration.\n{0}", ustr(e))
                 finally:
                     PeriodicOperation.sleep_until_next_operation(self._periodic_operations)
-        except Exception as e: # pylint: disable=C0103
+        except Exception as e:
             logger.error("An error occurred in the monitor thread; will exit the thread.\n{0}", ustr(e))
-
-    def collect_and_send_events(self):
-        """
-        Periodically send any events located in the events folder
-        """
-        try:
-            event_list = collect_events()
-
-            if len(event_list.events) > 0: # pylint: disable=len-as-condition
-                self.protocol.report_event(event_list)
-        except Exception as e: # pylint: disable=C0103
-            err_msg = "Failure in collecting/sending Agent events: {0}".format(ustr(e))
-            add_event(op=WALAEventOperation.UnhandledError, message=err_msg, is_success=False)
 
     def send_imds_heartbeat(self):
         """
@@ -285,7 +252,7 @@ class MonitorHandler(ThreadHandlerInterface): # pylint: disable=R0902
 
             self.health_service.report_imds_status(is_healthy, response)
 
-        except Exception as e: # pylint: disable=C0103
+        except Exception as e:
             msg = "Exception sending imds heartbeat: {0}".format(ustr(e))
             add_event(
                 name=AGENT_NAME,
@@ -324,7 +291,7 @@ class MonitorHandler(ThreadHandlerInterface): # pylint: disable=R0902
                     message='{0} since successful heartbeat'.format(self.host_plugin_errorstate.fail_time),
                     log_event=False)
 
-        except Exception as e: # pylint: disable=C0103
+        except Exception as e:
             msg = "Exception sending host plugin heartbeat: {0}".format(ustr(e))
             add_event(
                 name=AGENT_NAME,

@@ -37,10 +37,13 @@ from azurelinuxagent.common.future import ustr
 from azurelinuxagent.common.logcollector import LogCollector, OUTPUT_RESULTS_FILE_PATH
 from azurelinuxagent.common.osutil import get_osutil
 from azurelinuxagent.common.utils import fileutil
-from azurelinuxagent.common.version import AGENT_NAME, AGENT_LONG_VERSION, \
+from azurelinuxagent.common.utils.flexible_version import FlexibleVersion
+from azurelinuxagent.common.version import AGENT_NAME, AGENT_LONG_VERSION, AGENT_VERSION, \
     DISTRO_NAME, DISTRO_VERSION, \
     PY_VERSION_MAJOR, PY_VERSION_MINOR, \
-    PY_VERSION_MICRO, GOAL_STATE_AGENT_VERSION
+    PY_VERSION_MICRO, GOAL_STATE_AGENT_VERSION, \
+    get_daemon_version, set_daemon_version
+from azurelinuxagent.pa.provision.default import ProvisionHandler
 
 from azurelinuxagent.common.osutil.default import DEFAULT_LOG_DIR, WAAGENT_LOG_FILE
 
@@ -66,29 +69,15 @@ class Agent(object):
         # Init log
         verbose = verbose or conf.get_logs_verbose()
         level = logger.LogLevel.VERBOSE if verbose else logger.LogLevel.INFO
-        log_dir = self.osutil.get_agent_log_dir()
+        logger.add_logger_appender(logger.AppenderType.FILE, level, path=conf.get_agent_log_file(),
+            max_bytes=self.osutil.get_agent_log_rotation_maxbytes(),
+            backup_count=self.osutil.get_agent_log_rotation_backupcount(),
+            agent_controlled_log_rotation=self.osutil.agent_controlled_log_rotation(),
+            should_archive_backup_files=self.osutil.to_archive_agent_log_rotation_backupfile())
 
-        if os.path.isfile(log_dir):
-            # The passed log-dir was incorrect and we are defaulting to DEFAULT_LOG_DIR.
-            log_dir = DEFAULT_LOG_DIR
-            logger.error("{0} is a file, overriding the log directory with {1}".format(self.osutil.get_agent_log_dir(),
-                                                                                       log_dir))
-        try:
-            if not os.path.isdir(log_dir):
-                fileutil.mkdir(log_dir, mode=0o755, owner="root")
-        except Exception as e:
-            logger.error("Exception occurred while creating log directory {0}: {1}".format(log_dir, e))
-
-        log_file = os.path.join(log_dir, WAAGENT_LOG_FILE)
-        logger.add_logger_appender(logger.AppenderType.FILE, level, path=log_file,
-                                   max_bytes=self.osutil.get_agent_log_rotation_maxbytes(),
-                                   backup_count=self.osutil.get_agent_log_rotation_backupcount(),
-                                   agent_controlled_log_rotation=self.osutil.agent_controlled_log_rotation(),
-                                   should_archive_backup_files=self.osutil.to_archive_agent_log_rotation_backupfile())
-
-        if conf.get_logs_console():
-            logger.add_logger_appender(logger.AppenderType.CONSOLE, level,
-                                       path="/dev/console")
+        # echo the log to /dev/console if the machine will be provisioned
+        if conf.get_logs_console() and not ProvisionHandler.is_provisioned():
+            self.__add_console_appender(level)
 
         if event.send_logs_to_telemetry():
             logger.add_logger_appender(logger.AppenderType.TELEMETRY,
@@ -101,7 +90,7 @@ class Agent(object):
                 raise Exception("{0} is a file".format(ext_log_dir))
             if not os.path.isdir(ext_log_dir):
                 fileutil.mkdir(ext_log_dir, mode=0o755, owner="root")
-        except Exception as e: # pylint: disable=C0103
+        except Exception as e:
             logger.error(
                 "Exception occurred while creating extension "
                 "log directory {0}: {1}".format(ext_log_dir, e))
@@ -117,10 +106,14 @@ class Agent(object):
         event.init_event_logger(event_dir)
         event.enable_unhandled_err_dump("WALA")
 
+    def __add_console_appender(self, level):
+        logger.add_logger_appender(logger.AppenderType.CONSOLE, level, path="/dev/console")
+
     def daemon(self):
         """
         Run agent daemon
         """
+        set_daemon_version(AGENT_VERSION)
         logger.set_prefix("Daemon")
         threading.current_thread().setName("Daemon")
         child_args = None \
@@ -163,6 +156,21 @@ class Agent(object):
         """
         logger.set_prefix("ExtHandler")
         threading.current_thread().setName("ExtHandler")
+
+        #
+        # Agents < 2.2.53 used to echo the log to the console. Since the extension handler could have been started by
+        # one of those daemons, output a message indicating that output to the console will stop, otherwise users
+        # may think that the agent died if they noticed that output to the console stops abruptly.
+        #
+        # Feel free to remove this code if telemetry shows there are no more agents <= 2.2.53 in the field.
+        #
+        if conf.get_logs_console() and get_daemon_version() < FlexibleVersion("2.2.53"):
+            self.__add_console_appender(logger.LogLevel.INFO)
+            try:
+                logger.info(u"The agent will now check for updates and then will process extensions. Output to /dev/console will be suspended during those operations.")
+            finally:
+                logger.disable_console_output()
+
         from azurelinuxagent.ga.update import get_update_handler
         update_handler = get_update_handler()
         update_handler.run(debug)
@@ -183,18 +191,20 @@ class Agent(object):
             archive = log_collector.collect_logs_and_get_archive()
             print("Log collection successfully completed. Archive can be found at {0} "
                   "and detailed log output can be found at {1}".format(archive, OUTPUT_RESULTS_FILE_PATH))
-        except Exception as e: # pylint: disable=C0103
+        except Exception as e:
             print("Log collection completed unsuccessfully. Error: {0}".format(ustr(e)))
             print("Detailed log output can be found at {0}".format(OUTPUT_RESULTS_FILE_PATH))
             sys.exit(1)
 
 
-def main(args=[]): # pylint: disable=R0912,W0102
+def main(args=None):
     """
     Parse command line arguments, exit with usage() on error.
     Invoke different methods according to different command
     """
-    if len(args) <= 0: # pylint: disable=len-as-condition
+    if args is None:
+        args = []
+    if len(args) <= 0:
         args = sys.argv[1:]
     command, force, verbose, debug, conf_file_path, log_collector_full_mode = parse_args(args)
     if command == "version":
@@ -228,7 +238,7 @@ def main(args=[]): # pylint: disable=R0912,W0102
                          traceback.format_exc())
 
 
-def parse_args(sys_args): # pylint: disable=R0912
+def parse_args(sys_args):
     """
     Parse command line arguments
     """
@@ -240,7 +250,7 @@ def parse_args(sys_args): # pylint: disable=R0912
     log_collector_full_mode = False
 
     for arg in sys_args:
-        m = re.match("^(?:[-/]*)configuration-path:([\w/\.\-_]+)", arg) # pylint: disable=W1401,C0103
+        m = re.match("^(?:[-/]*)configuration-path:([\w/\.\-_]+)", arg)  # pylint: disable=W1401
         if not m is None:
             conf_file_path = m.group(1)
             if not os.path.exists(conf_file_path):
@@ -300,13 +310,13 @@ def usage():
     """
     Return agent usage message
     """
-    s  = "\n" # pylint: disable=C0103
-    s += ("usage: {0} [-verbose] [-force] [-help] " # pylint: disable=C0103
+    s  = "\n"
+    s += ("usage: {0} [-verbose] [-force] [-help] "
            "-configuration-path:<path to configuration file>" 
            "-deprovision[+user]|-register-service|-version|-daemon|-start|"
            "-run-exthandlers|-show-configuration|-collect-logs [-full]"
            "").format(sys.argv[0])
-    s += "\n" # pylint: disable=C0103
+    s += "\n"
     return s
 
 
