@@ -23,7 +23,6 @@ from datetime import datetime, timedelta
 from azurelinuxagent.common.event import __event_logger__, add_log_event, MAX_NUMBER_OF_EVENTS, EVENTS_DIRECTORY
 
 import azurelinuxagent.common.logger as logger
-from azurelinuxagent.common.osutil import get_osutil
 from azurelinuxagent.common.utils import fileutil
 from tests.tools import AgentTestCase, MagicMock, patch, skip_if_predicate_true
 
