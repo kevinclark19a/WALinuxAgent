@@ -298,11 +298,28 @@ class ExtHandlersHandler(object):
             self.log_report = True
 
             if self._extension_processing_allowed() and self._incarnation_changed(etag):
-                activity_id, correlation_id, gs_creation_time = self.get_goal_state_debug_metadata()
+                try:
+                    activity_id, correlation_id, gs_creation_time = self.get_goal_state_debug_metadata()
 
-                logger.info(
-                    "ProcessGoalState started [Incarnation: {0}; Activity Id: {1}; Correlation Id: {2}; GS Creation Time: {3}]".format(
-                        etag, activity_id, correlation_id, gs_creation_time))
+                    debug_info = "; ".join([
+                        "Incarnation: {0}".format(etag),
+                        "Activity Id: {0}".format(activity_id),
+                        "Correlation Id: {0}".format(correlation_id),
+                        "GS Creation Time: {0}".format(gs_creation_time)
+                    ])
+                    logger.info("ProcessGoalState started [{0}]", debug_info)
+                except Exception as e:
+                    # A failure here isn't a fatal error, because the info we're
+                    # trying to retrieve is debug only on linux. We still need to 
+                    # process the goal state.
+                    error_msg = u"ProcessGoalState started, but failed to retrieve gs debug metadata: '{0}'"\
+                        .format(ustr(e))
+                    detailed_msg = '{0} {1}'.format(error_msg, traceback.extract_tb(get_traceback(e)))
+                    logger.error(error_msg)
+                    add_event(AGENT_NAME, version=CURRENT_VERSION,
+                        op=WALAEventOperation.ExtensionProcessing,
+                        is_success=False, message=detailed_msg)
+                
                 self.handle_ext_handlers(etag)
                 self.last_etag = etag
 
