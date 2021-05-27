@@ -73,7 +73,7 @@ jobs:
   - bash: |
       scenario_dir="dungeon_crawler/scenarios/$(scenarioDirectory)"
 
-      pytest -o junit_suite_name=$(Agent.JobName) --junitxml=TEST-PROTOTYPE.xml "${{ variables.prototypeDirectory }}/$scenario_dir"
+      pytest -o junit_suite_name="$(Agent.JobName)" --junitxml=TEST-PROTOTYPE.xml "${{ variables.prototypeDirectory }}/$scenario_dir"
     displayName: "Run pytest"
 
   - task: PublishTestResults@2
