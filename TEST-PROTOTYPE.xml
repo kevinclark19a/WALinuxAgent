@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="2" time="0.062" timestamp="2021-05-17T13:28:46.130802" hostname="kclark-ubuntu1804"><testcase classname=".azure-pipelines.dungeon_crawler_prototype.dungeon_crawler.scenarios.nosetests-prototype.test_fail.TestFailure" name="test_failure" time="0.001"><failure message="AssertionError: Intential failure for debugging.">self = &lt;test_fail.TestFailure testMethod=test_failure&gt;
+
+    def test_failure(self):
+&gt;       raise AssertionError("Intential failure for debugging.")
+E       AssertionError: Intential failure for debugging.
+
+.azure-pipelines/dungeon_crawler_prototype/dungeon_crawler/scenarios/nosetests-prototype/test_fail.py:8: AssertionError</failure></testcase><testcase classname=".azure-pipelines.dungeon_crawler_prototype.dungeon_crawler.scenarios.nosetests-prototype.test_succeed.TestSuccess" name="test_succeed" time="0.001" /></testsuite></testsuites>

@@ -18,6 +18,23 @@ variables:
   ${{ if eq( variables['Build.SourceBranchName'], 'develop') }}:
     agentVersion: "9.9.9.9"
   agentVersion: ${{ coalesce(variables['agentVersion'], parameters['agentVersion']) }}
+  prototypeDirectory: "$(Pipeline.Workspace)/.azure-pipelines/dungeon_crawler_prototype"
+
+
+strategy:
+  matrix:
+    'PyTest Prototype v3.6':
+      scenarioDirectory: "pytests-prototype"
+      pythonVersion: '3.6'
+    'PyTest Prototype v2.6':
+      scenarioDirectory: "pytests-prototype"
+      pythonVersion: '2.6'
+    'PyTest Prototype v2.7':
+      scenarioDirectory: "pytests-prototype"
+      pythonVersion: '2.7'
+    'PyTest Prototype v3.9':
+      scenarioDirectory: "pytests-prototype"
+      pythonVersion: '3.9'
 
 jobs:
 
@@ -30,7 +47,7 @@ jobs:
 
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.6'
+      versionSpec: $(pythonVersion)
 
   - script: python -m pip install --upgrade pip setuptools wheel
     displayName: 'Install Pip Tools'
@@ -50,33 +67,15 @@ jobs:
     displayName: "Install latest WALinuxAgent from source"
   
   - script: |
-      PROTOTYPE_DIR="$(pwd)/.azure-pipelines/dungeon_crawler_prototype"
-      echo "##vso[task.setvariable variable=PYTHONPATH]$PYTHONPATH:/usr/lib/python3/dist-packages/:$PROTOTYPE_DIR/"
+      sys_python_package_dir=$(./${{variables.prototypeDirectory}}/workflows/python_package_dir.sh $(pythonVersion))
+      echo "##vso[task.setvariable variable=PYTHONPATH]$PYTHONPATH:$sys_python_package_dir:${{ variables.prototypeDirectory }}/"
     displayName: "Update PYTHONPATH"
 
   - bash: |
-      PROTOTYPE_DIR="$(pwd)/.azure-pipelines/dungeon_crawler_prototype"
-      AGENT_BVT_DIR="dungeon_crawler/scenarios/agent-bvt"
+      scenario_dir="dungeon_crawler/scenarios/$(scenarioDirectory)"
 
-      exitcode=0
-      ls -1 "$PROTOTYPE_DIR/$AGENT_BVT_DIR/" | while read script; do
-        [[ $script == *SKIP ]] && continue
-        $PROTOTYPE_DIR/workflows/run_script.sh "$PROTOTYPE_DIR/$AGENT_BVT_DIR/$script"
-        ((exitcode += $?))
-      done
-      exit $exitcode
-    displayName: "Run Agent-BVT Scripts"
-
-  - bash: |
-      PROTOTYPE_DIR="$(pwd)/.azure-pipelines/dungeon_crawler_prototype"
-      NOSETESTS_DIR="dungeon_crawler/scenarios/nosetests-prototype"
-
-      pytest --junitxml=TEST-PROTOTYPE.xml "$PROTOTYPE_DIR/$NOSETESTS_DIR"
-    displayName: "Run nosetests script"
-
-  - bash: ls .
-    displayName: "debug"
-    condition: succeededOrFailed()
+      pytest --junitxml=TEST-PROTOTYPE.xml "${{ variables.prototypeDirectory }}/$scenario_dir"
+    displayName: "Run pytest"
 
   - task: PublishTestResults@2
     condition: succeededOrFailed()
