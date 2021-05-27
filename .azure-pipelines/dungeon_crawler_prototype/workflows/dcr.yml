@@ -18,7 +18,7 @@ variables:
   ${{ if eq( variables['Build.SourceBranchName'], 'develop') }}:
     agentVersion: "9.9.9.9"
   agentVersion: ${{ coalesce(variables['agentVersion'], parameters['agentVersion']) }}
-  prototypeDirectory: "$(Pipeline.Workspace)/.azure-pipelines/dungeon_crawler_prototype"
+  prototypeDirectory: "$(Build.Repository.LocalPath)/.azure-pipelines/dungeon_crawler_prototype"
 
 
 strategy:
@@ -26,9 +26,6 @@ strategy:
     'PyTest Prototype v3.6':
       scenarioDirectory: "pytests-prototype"
       pythonVersion: '3.6'
-    'PyTest Prototype v2.6':
-      scenarioDirectory: "pytests-prototype"
-      pythonVersion: '2.6'
     'PyTest Prototype v2.7':
       scenarioDirectory: "pytests-prototype"
       pythonVersion: '2.7'
